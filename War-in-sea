@@ -2,415 +2,257 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Iron Man Game</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>War Beneath the Sea</title>
     <style>
         body {
             margin: 0;
-            background: #000;
+            padding: 0;
+            background-color: #111;
+            color: white;
+            font-family: sans-serif;
             display: flex;
-            justify-content: center;
+            flex-direction: column;
             align-items: center;
+            justify-content: center;
             height: 100vh;
         }
         canvas {
-            border: 2px solid #ff0000;
+            background-color: #004466; /* Deep sea blue */
+            border: 4px solid #fff;
+            box-shadow: 0 0 15px rgba(0, 150, 255, 0.5);
+        }
+        .instructions {
+            margin-top: 15px;
+            text-align: center;
         }
     </style>
 </head>
 <body>
-    <canvas id="game" width="800" height="400"></canvas>
+
+    <h1>War Beneath the Sea</h1>
+    <canvas id="gameCanvas" width="800" height="400"></canvas>
+    
+    <div class="instructions">
+        <p><strong>Up / Down Arrows:</strong> Move &nbsp;&nbsp;|&nbsp;&nbsp; <strong>Spacebar:</strong> Shoot</p>
+        <p>Refresh the page to restart after Game Over.</p>
+    </div>
+
     <script>
-        const canvas = document.getElementById('game');
-        const ctx = canvas.getContext('2d');
+        const canvas = document.getElementById("gameCanvas");
+        const ctx = canvas.getContext("2d");
 
-        let player = { x: 50, y: 180, w: 40, h: 40, speed: 5 };
-        let lasers = [];
-        let enemies = [];
-        let gameOver = false;
-        let bgX = 0;
-        let keys = {};
-        let spawnTimer = 0;
+        // Game State
+        let isGameOver = false;
+        let score = 0;
+        let frameCount = 0;
 
-        document.addEventListener('keydown', e => {
-            keys[e.key] = true;
-            if (e.key === 'Enter' && !gameOver) {
-                lasers.push({ x: player.x + player.w, y: player.y + player.h / 2 - 2, w: 20, h: 4 });
-            }
-            if (e.key === 'Enter' && gameOver) {
-                enemies = [];
-                lasers = [];
-                player.y = 180;
-                gameOver = false;
-            }
+        // Input Tracking
+        const keys = { ArrowUp: false, ArrowDown: false };
+
+        window.addEventListener("keydown", (e) => {
+            if (keys.hasOwnProperty(e.code)) keys[e.code] = true;
+            if (e.code === "Space" && !isGameOver) shootBullet();
         });
-        document.addEventListener('keyup', e => keys[e.key] = false);
+
+        window.addEventListener("keyup", (e) => {
+            if (keys.hasOwnProperty(e.code)) keys[e.code] = false;
+        });
+
+        // --- Game Objects ---
+
+        // The Sea Hero
+        const hero = {
+            x: 50,
+            y: 200,
+            width: 30,
+            height: 30,
+            speed: 5,
+            color: "#00FFcc" // Cyan square
+        };
+
+        // Arrays for entities
+        let bullets = [];
+        let sharks = [];
+        let bubbles = [];
+
+        // Setup initial background bubbles for the loop
+        for (let i = 0; i < 30; i++) {
+            bubbles.push({
+                x: Math.random() * canvas.width,
+                y: Math.random() * canvas.height,
+                radius: Math.random() * 4 + 1,
+                speed: Math.random() * 2 + 1
+            });
+        }
+
+        // --- Core Functions ---
+
+        function shootBullet() {
+            bullets.push({
+                x: hero.x + hero.width,
+                y: hero.y + hero.height / 2 - 2,
+                width: 15,
+                height: 4,
+                speed: 8,
+                color: "yellow"
+            });
+        }
+
+        function spawnShark() {
+            // Random Y position, ensuring it stays within the water
+            const sharkY = Math.random() * (canvas.height - 40 - 30); 
+            sharks.push({
+                x: canvas.width,
+                y: sharkY,
+                width: 40,
+                height: 25,
+                speed: Math.random() * 3 + 2,
+                color: "#555" // Gray shark boxes
+            });
+        }
+
+        // --- Update Logic ---
 
         function update() {
-            if (gameOver) return;
+            if (isGameOver) return;
 
-            if (keys['ArrowUp'] && player.y > 0) player.y -= player.speed;
-            if (keys['ArrowDown'] && player.y + player.h < canvas.height) player.y += player.speed;
+            frameCount++;
 
-            bgX -= 2;
-            if (bgX <= -800) bgX = 0;
-
-            for (let i = lasers.length - 1; i >= 0; i--) {
-                lasers[i].x += 8;
-                if (lasers[i].x > 820) lasers.splice(i, 1);
+            // Move Hero
+            if (keys.ArrowUp && hero.y > 0) {
+                hero.y -= hero.speed;
+            }
+            if (keys.ArrowDown && hero.y < canvas.height - hero.height - 40) { // 40 is sand height
+                hero.y += hero.speed;
             }
 
-            spawnTimer++;
-            if (spawnTimer > 60) {
-                let size = 30 + Math.random() * 20;
-                enemies.push({ x: 810, y: Math.random() * (canvas.height - size), w: size, h: size, speed: 2 + Math.random() * 3 });
-                spawnTimer = 0;
-            }
-
-            for (let i = enemies.length - 1; i >= 0; i--) {
-                enemies[i].x -= enemies[i].speed;
-
-                if (enemies[i].x + enemies[i].w < 0 || collides(player, enemies[i])) {
-                    gameOver = true;
-                    return;
+            // Move Background Bubbles (Looping effect)
+            bubbles.forEach(bubble => {
+                bubble.x -= bubble.speed;
+                if (bubble.x < -10) {
+                    bubble.x = canvas.width + 10;
+                    bubble.y = Math.random() * canvas.height;
                 }
-
-                for (let j = lasers.length - 1; j >= 0; j--) {
-                    if (collides(lasers[j], enemies[i])) {
-                        enemies.splice(i, 1);
-                        lasers.splice(j, 1);
-                        break;
-                    }
-                }
-            }
-        }
-
-        function collides(a, b) {
-            return a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
-        }
-
-        function draw() {
-            ctx.fillStyle = '#1a1a2e';
-            ctx.fillRect(0, 0, 800, 400);
-
-            for (let i = 0; i < 20; i++) {
-                let sx = ((i * 47 + bgX * 1.5) % 800 + 800) % 800;
-                let sy = (i * 73) % 400;
-                ctx.fillStyle = '#444';
-                ctx.fillRect(sx, sy, 2, 2);
-            }
-
-            ctx.fillStyle = '#cc0000';
-            ctx.fillRect(player.x, player.y, player.w, player.h);
-            ctx.fillStyle = '#ffd700';
-            ctx.fillRect(player.x + 5, player.y + 5, 10, 10);
-            ctx.fillRect(player.x + 5, player.y + 25, 30, 10);
-            ctx.fillStyle = '#00d4ff';
-            ctx.beginPath();
-            ctx.arc(player.x + 25, player.y + 18, 5, 0, Math.PI * 2);
-            ctx.fill();
-
-            ctx.fillStyle = '#00d4ff';
-            lasers.forEach(l => ctx.fillRect(l.x, l.y, l.w, l.h));
-
-            enemies.forEach(e => {
-                ctx.fillStyle = '#00cc00';
-                ctx.fillRect(e.x, e.y, e.w, e.h);
-                ctx.strokeStyle = '#00ff00';
-                ctx.lineWidth = 2;
-                ctx.strokeRect(e.x, e.y, e.w, e.h);
             });
 
-            if (gameOver) {
-                ctx.fillStyle = 'rgba(0,0,0,0.7)';
-                ctx.fillRect(0, 0, 800, 400);
-                ctx.fillStyle = '#ff0000';
-                ctx.font = '48px Arial';
-                ctx.fillText('GAME OVER', 250, 190);
-                ctx.fillStyle = '#fff';
-                ctx.font = '24px Arial';
-                ctx.fillText('Press ENTER to restart', 260, 240);
+            // Move Bullets
+            bullets.forEach((b, index) => {
+                b.x += b.speed;
+                if (b.x > canvas.width) bullets.splice(index, 1);
+            });
+
+            // Spawn and Move Sharks
+            if (frameCount % 60 === 0) { // Spawn roughly every 1 second (at 60fps)
+                spawnShark();
+            }
+
+            sharks.forEach((shark, sIndex) => {
+                shark.x -= shark.speed;
+
+                // Shark off-screen cleanup
+                if (shark.x + shark.width < 0) {
+                    sharks.splice(sIndex, 1);
+                }
+
+                // Collision: Shark hits Hero
+                if (
+                    hero.x < shark.x + shark.width &&
+                    hero.x + hero.width > shark.x &&
+                    hero.y < shark.y + shark.height &&
+                    hero.y + hero.height > shark.y
+                ) {
+                    isGameOver = true;
+                }
+
+                // Collision: Bullet hits Shark
+                bullets.forEach((bullet, bIndex) => {
+                    if (
+                        bullet.x < shark.x + shark.width &&
+                        bullet.x + bullet.width > shark.x &&
+                        bullet.y < shark.y + shark.height &&
+                        bullet.y + bullet.height > shark.y
+                    ) {
+                        // Destroy both
+                        sharks.splice(sIndex, 1);
+                        bullets.splice(bIndex, 1);
+                        score += 10;
+                    }
+                });
+            });
+        }
+
+        // --- Drawing Logic ---
+
+        function draw() {
+            // Clear Canvas
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // Draw Looping Background (Bubbles & Sand)
+            ctx.fillStyle = "rgba(255, 255, 255, 0.3)";
+            bubbles.forEach(bubble => {
+                ctx.beginPath();
+                ctx.arc(bubble.x, bubble.y, bubble.radius, 0, Math.PI * 2);
+                ctx.fill();
+            });
+
+            ctx.fillStyle = "#c2b280"; // Sand color
+            ctx.fillRect(0, canvas.height - 40, canvas.width, 40);
+
+            // Draw Hero
+            ctx.fillStyle = hero.color;
+            ctx.fillRect(hero.x, hero.y, hero.width, hero.height);
+
+            // Draw Bullets
+            bullets.forEach(b => {
+                ctx.fillStyle = b.color;
+                ctx.fillRect(b.x, b.y, b.width, b.height);
+            });
+
+            // Draw Sharks
+            sharks.forEach(shark => {
+                ctx.fillStyle = shark.color;
+                ctx.fillRect(shark.x, shark.y, shark.width, shark.height);
+                
+                // Add a tiny eye for the basic shark
+                ctx.fillStyle = "red";
+                ctx.fillRect(shark.x + 5, shark.y + 5, 4, 4);
+            });
+
+            // Draw Score
+            ctx.fillStyle = "white";
+            ctx.font = "20px Arial";
+            ctx.fillText("Score: " + score, 20, 30);
+
+            // Draw Game Over Screen
+            if (isGameOver) {
+                ctx.fillStyle = "rgba(0, 0, 0, 0.7)";
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                ctx.fillStyle = "red";
+                ctx.font = "50px Arial";
+                ctx.textAlign = "center";
+                ctx.fillText("GAME OVER", canvas.width / 2, canvas.height / 2);
+                
+                ctx.fillStyle = "white";
+                ctx.font = "20px Arial";
+                ctx.fillText("Final Score: " + score, canvas.width / 2, canvas.height / 2 + 40);
+                ctx.fillText("Press F5 to Restart", canvas.width / 2, canvas.height / 2 + 80);
             }
         }
 
-        function loop() {
+        // --- Game Loop ---
+
+        function gameLoop() {
             update();
             draw();
-            requestAnimationFrame(loop);
+            if (!isGameOver) {
+                requestAnimationFrame(gameLoop);
+            }
         }
 
-        loop();
+        // Start the game
+        gameLoop();
     </script>
 </body>
 </html>
-        var bullets = [];
-        var sharks = [];
-        var score = 0;
-        var playing = false;
-        var dead = false;
-        var bgScroll = 0;
-        var shootWait = 0;
-        var spawnWait = 0;
-        var upPressed = false;
-        var downPressed = false;
-        var spacePressed = false;
 
-        document.addEventListener("keydown", function(e) {
-            if (e.key === "ArrowUp") upPressed = true;
-            if (e.key === "ArrowDown") downPressed = true;
-            if (e.key === " ") { spacePressed = true; e.preventDefault(); }
-            if (e.key === "Enter") {
-                if (!playing) {
-                    playing = true;
-                    dead = false;
-                    score = 0;
-                    heroY = 180;
-                    bullets = [];
-                    sharks = [];
-                    spawnWait = 0;
-                    shootWait = 0;
-                }
-            }
-        });
-
-        document.addEventListener("keyup", function(e) {
-            if (e.key === "ArrowUp") upPressed = false;
-            if (e.key === "ArrowDown") downPressed = false;
-            if (e.key === " ") spacePressed = false;
-        });
-
-        function mainLoop() {
-            drawBackground();
-
-            if (!playing && !dead) {
-                ctx.fillStyle = "#0ff";
-                ctx.font = "bold 30px Arial";
-                ctx.fillText("WAR BENEATH THE SEA", 100, 150);
-                ctx.font = "18px Arial";
-                ctx.fillStyle = "#8cf";
-                ctx.fillText("Press ENTER to Start", 195, 220);
-                requestAnimationFrame(mainLoop);
-                return;
-            }
-
-            if (dead) {
-                drawEverything();
-                ctx.fillStyle = "rgba(0,0,0,0.5)";
-                ctx.fillRect(0, 0, 600, 400);
-                ctx.fillStyle = "#f33";
-                ctx.font = "bold 40px Arial";
-                ctx.fillText("GAME OVER", 170, 170);
-                ctx.fillStyle = "#fff";
-                ctx.font = "22px Arial";
-                ctx.fillText("Score: " + score, 240, 220);
-                ctx.fillStyle = "#0ff";
-                ctx.font = "16px Arial";
-                ctx.fillText("Press ENTER to Restart", 195, 270);
-                requestAnimationFrame(mainLoop);
-                return;
-            }
-
-            moveHero();
-            handleShooting();
-            moveBullets();
-            spawnSharks();
-            moveSharks();
-            checkHits();
-            checkGameOver();
-            drawEverything();
-
-            requestAnimationFrame(mainLoop);
-        }
-
-        function drawBackground() {
-            // water
-            ctx.fillStyle = "#002040";
-            ctx.fillRect(0, 0, 600, 400);
-
-            // scroll
-            bgScroll = bgScroll - 1;
-            if (bgScroll < -600) bgScroll = 0;
-
-            // light rays
-            ctx.globalAlpha = 0.05;
-            ctx.fillStyle = "#4af";
-            for (var i = 0; i < 4; i++) {
-                var rx = ((i * 180) + bgScroll * 0.3);
-                rx = ((rx % 700) + 700) % 700 - 50;
-                ctx.beginPath();
-                ctx.moveTo(rx, 0);
-                ctx.lineTo(rx + 30, 0);
-                ctx.lineTo(rx - 40, 400);
-                ctx.lineTo(rx - 70, 400);
-                ctx.fill();
-            }
-            ctx.globalAlpha = 1;
-
-            // sea floor
-            ctx.fillStyle = "#1a3020";
-            ctx.fillRect(0, 370, 600, 30);
-
-            // rocks on floor
-            ctx.fillStyle = "#243828";
-            for (var i = 0; i < 10; i++) {
-                var rx = ((i * 70 + bgScroll) % 600 + 600) % 600;
-                ctx.beginPath();
-                ctx.arc(rx, 375, 8 + (i % 3) * 3, 0, Math.PI * 2);
-                ctx.fill();
-            }
-
-            // seaweed
-            ctx.fillStyle = "#0a5520";
-            for (var i = 0; i < 6; i++) {
-                var sx = ((i * 110 + bgScroll * 0.8) % 600 + 600) % 600;
-                ctx.fillRect(sx, 340, 5, 30);
-                ctx.fillRect(sx - 4, 330, 5, 20);
-            }
-
-            // small bubbles
-            ctx.strokeStyle = "rgba(100,200,255,0.15)";
-            for (var i = 0; i < 5; i++) {
-                var bx = ((i * 130 + 40 - bgScroll * 0.4) % 600 + 600) % 600;
-                var by = 60 + i * 60;
-                ctx.beginPath();
-                ctx.arc(bx, by, 3 + i % 3, 0, Math.PI * 2);
-                ctx.stroke();
-            }
-        }
-
-        function moveHero() {
-            if (upPressed) heroY = heroY - 4;
-            if (downPressed) heroY = heroY + 4;
-            if (heroY < 5) heroY = 5;
-            if (heroY > 340) heroY = 340;
-        }
-
-        function handleShooting() {
-            if (shootWait > 0) shootWait = shootWait - 1;
-            if (spacePressed && shootWait <= 0) {
-                bullets.push({x: heroX + heroW + 5, y: heroY + heroH / 2 - 2});
-                shootWait = 15;
-            }
-        }
-
-        function moveBullets() {
-            for (var i = bullets.length - 1; i >= 0; i--) {
-                bullets[i].x = bullets[i].x + 7;
-                if (bullets[i].x > 610) {
-                    bullets.splice(i, 1);
-                }
-            }
-        }
-
-        function spawnSharks() {
-            spawnWait = spawnWait + 1;
-            var rate = 70 - Math.floor(score / 20) * 5;
-            if (rate < 25) rate = 25;
-            if (spawnWait >= rate) {
-                spawnWait = 0;
-                var sy = 20 + Math.floor(Math.random() * 310);
-                var sp = 1.5 + Math.random() * 1.5 + score * 0.01;
-                if (sp > 5) sp = 5;
-                sharks.push({x: 610, y: sy, w: 45, h: 22, speed: sp});
-            }
-        }
-
-        function moveSharks() {
-            for (var i = sharks.length - 1; i >= 0; i--) {
-                sharks[i].x = sharks[i].x - sharks[i].speed;
-                if (sharks[i].x < -60) {
-                    sharks.splice(i, 1);
-                }
-            }
-        }
-
-        function checkHits() {
-            for (var i = sharks.length - 1; i >= 0; i--) {
-                for (var j = bullets.length - 1; j >= 0; j--) {
-                    var s = sharks[i];
-                    var b = bullets[j];
-                    if (b && s) {
-                        if (b.x < s.x + s.w && b.x + 8 > s.x && b.y < s.y + s.h && b.y + 4 > s.y) {
-                            sharks.splice(i, 1);
-                            bullets.splice(j, 1);
-                            score = score + 10;
-                            break;
-                        }
-                    }
-                }
-            }
-        }
-
-        function checkGameOver() {
-            for (var i = 0; i < sharks.length; i++) {
-                var s = sharks[i];
-                if (heroX < s.x + s.w && heroX + heroW > s.x && heroY < s.y + s.h && heroY + heroH > s.y) {
-                    dead = true;
-                    playing = false;
-                    return;
-                }
-            }
-        }
-
-        function drawEverything() {
-            // draw hero
-            ctx.fillStyle = "#00dd66";
-            ctx.fillRect(heroX, heroY, heroW, heroH);
-            // border
-            ctx.strokeStyle = "#009944";
-            ctx.strokeRect(heroX, heroY, heroW, heroH);
-            // window
-            ctx.fillStyle = "#aff";
-            ctx.fillRect(heroX + 25, heroY + 8, 8, 8);
-            ctx.fillStyle = "#0bb";
-            ctx.fillRect(heroX + 27, heroY + 10, 4, 4);
-            // gun
-            ctx.fillStyle = "#999";
-            ctx.fillRect(heroX + heroW, heroY + heroH / 2 - 3, 8, 6);
-
-            // draw bullets
-            for (var i = 0; i < bullets.length; i++) {
-                ctx.fillStyle = "#ff0";
-                ctx.fillRect(bullets[i].x, bullets[i].y, 8, 4);
-            }
-
-            // draw sharks
-            for (var i = 0; i < sharks.length; i++) {
-                var s = sharks[i];
-                // body
-                ctx.fillStyle = "#556";
-                ctx.beginPath();
-                ctx.moveTo(s.x, s.y + s.h / 2);
-                ctx.lineTo(s.x + s.w * 0.75, s.y + 2);
-                ctx.lineTo(s.x + s.w, s.y + s.h / 2 - 6);
-                ctx.lineTo(s.x + s.w * 0.85, s.y + s.h / 2);
-                ctx.lineTo(s.x + s.w, s.y + s.h / 2 + 6);
-                ctx.lineTo(s.x + s.w * 0.75, s.y + s.h - 2);
-                ctx.closePath();
-                ctx.fill();
-                // fin
-                ctx.fillStyle = "#445";
-                ctx.beginPath();
-                ctx.moveTo(s.x + s.w * 0.4, s.y + 2);
-                ctx.lineTo(s.x + s.w * 0.5, s.y - 10);
-                ctx.lineTo(s.x + s.w * 0.65, s.y + 4);
-                ctx.closePath();
-                ctx.fill();
-                // eye
-                ctx.fillStyle = "#f00";
-                ctx.fillRect(s.x + 4, s.y + s.h / 2 - 3, 4, 4);
-                // teeth
-                ctx.fillStyle = "#fff";
-                ctx.fillRect(s.x, s.y + s.h / 2 - 1, 2, 3);
-                ctx.fillRect(s.x + 3, s.y + s.h / 2 + 1, 2, 2);
-            }
-
-            // score
-            ctx.fillStyle = "#0ff";
-            ctx.font = "bold 18px Arial";
-            ctx.fillText("Score: " + score, 10, 25);
-        }
-
-        mainLoop();
-    </script>
-</body>
-</html>
