@@ -8,7 +8,7 @@
         body {
             margin: 0;
             padding: 0;
-            background-color: #111;
+            background-color: gray; 
             color: white;
             font-family: sans-serif;
             display: flex;
@@ -18,25 +18,16 @@
             height: 100vh;
         }
         canvas {
-            background-color: #004466; /* Deep sea blue */
+            background-color: #2B65EC;
             border: 4px solid #fff;
             box-shadow: 0 0 15px rgba(0, 150, 255, 0.5);
         }
-        .instructions {
-            margin-top: 15px;
-            text-align: center;
-        }
+        
     </style>
 </head>
 <body>
 
-    <h1>War Beneath the Sea</h1>
-    <canvas id="gameCanvas" width="800" height="400"></canvas>
-    
-    <div class="instructions">
-        <p><strong>Up / Down Arrows:</strong> Move &nbsp;&nbsp;|&nbsp;&nbsp; <strong>Spacebar:</strong> Shoot</p>
-        <p>Refresh the page to restart after Game Over.</p>
-    </div>
+    <canvas id="gameCanvas" width="1000" height="500"></canvas>
 
     <script>
         const canvas = document.getElementById("gameCanvas");
@@ -47,7 +38,7 @@
         let score = 0;
         let frameCount = 0;
 
-        // Input Tracking
+        // Input
         const keys = { ArrowUp: false, ArrowDown: false };
 
         window.addEventListener("keydown", (e) => {
@@ -68,14 +59,15 @@
             width: 30,
             height: 30,
             speed: 5,
-            color: "#00FFcc" // Cyan square
+            color: "#00ff00"
         };
 
-        // Arrays for entities
+        
         let bullets = [];
         let sharks = [];
         let bubbles = [];
 
+        // Setup initial background bubbles for the loop
         // Setup initial background bubbles for the loop
         for (let i = 0; i < 30; i++) {
             bubbles.push({
@@ -84,9 +76,9 @@
                 radius: Math.random() * 4 + 1,
                 speed: Math.random() * 2 + 1
             });
-        }
+        }       
 
-        // --- Core Functions ---
+        // --- main Functions ---
 
         function shootBullet() {
             bullets.push({
@@ -100,7 +92,7 @@
         }
 
         function spawnShark() {
-            // Random Y position, ensuring it stays within the water
+          
             const sharkY = Math.random() * (canvas.height - 40 - 30); 
             sharks.push({
                 x: canvas.width,
@@ -108,7 +100,7 @@
                 width: 40,
                 height: 25,
                 speed: Math.random() * 3 + 2,
-                color: "#555" // Gray shark boxes
+                color: "#555" 
             });
         }
 
@@ -127,6 +119,7 @@
                 hero.y += hero.speed;
             }
 
+            
             // Move Background Bubbles (Looping effect)
             bubbles.forEach(bubble => {
                 bubble.x -= bubble.speed;
@@ -135,7 +128,6 @@
                     bubble.y = Math.random() * canvas.height;
                 }
             });
-
             // Move Bullets
             bullets.forEach((b, index) => {
                 b.x += b.speed;
@@ -199,17 +191,17 @@
             ctx.fillStyle = "#c2b280"; // Sand color
             ctx.fillRect(0, canvas.height - 40, canvas.width, 40);
 
-            // Draw Hero
+            // Hero
             ctx.fillStyle = hero.color;
             ctx.fillRect(hero.x, hero.y, hero.width, hero.height);
 
-            // Draw Bullets
+            // Bullets
             bullets.forEach(b => {
                 ctx.fillStyle = b.color;
                 ctx.fillRect(b.x, b.y, b.width, b.height);
             });
 
-            // Draw Sharks
+            // Sharks
             sharks.forEach(shark => {
                 ctx.fillStyle = shark.color;
                 ctx.fillRect(shark.x, shark.y, shark.width, shark.height);
@@ -219,12 +211,12 @@
                 ctx.fillRect(shark.x + 5, shark.y + 5, 4, 4);
             });
 
-            // Draw Score
+            // Score
             ctx.fillStyle = "white";
             ctx.font = "20px Arial";
             ctx.fillText("Score: " + score, 20, 30);
 
-            // Draw Game Over Screen
+            // Game Over Screen
             if (isGameOver) {
                 ctx.fillStyle = "rgba(0, 0, 0, 0.7)";
                 ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -239,7 +231,7 @@
                 ctx.fillText("Press F5 to Restart", canvas.width / 2, canvas.height / 2 + 80);
             }
         }
-
+        
         // --- Game Loop ---
 
         function gameLoop() {
@@ -249,28 +241,9 @@
                 requestAnimationFrame(gameLoop);
             }
         }
-// Background Image Setup
-const bgImage = new Image();
-// Replace this URL with any underwater background image you like
-bgImage.src = 'https://images.unsplash.com/photo-1682687982501-1e5898cb4701?q=80&w=800&auto=format&fit=crop'; 
-let bgX = 0;           // Tracks the background's X position
-const bgSpeed = 1;     // How fast the background scrolls
-// Draw Looping Background Image
-if (bgImage.complete) {
-    // Draw the first image
-    ctx.drawImage(bgImage, bgX, 0, canvas.width, canvas.height);
-    // Draw the second image right behind it to fill the gap
-    ctx.drawImage(bgImage, bgX + canvas.width, 0, canvas.width, canvas.height);
-} else {
-    // Fallback color just in case the image takes a second to load
-    ctx.fillStyle = "#004466";
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-}
 
-
-        // Start the game
+        
         gameLoop();
     </script>
 </body>
 </html>
-
