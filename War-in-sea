@@ -1,40 +1,265 @@
-// 1. Setup - Canvas and Bullet Array
-const canvas = document.getElementById('gameCanvas');
-const ctx = canvas.getContext('2d');
-let bullets = [];
+<!DOCTYPE html>
+<html>
+<head>
+    <title>War Beneath the Sea</title>
+    <style>
+        body {
+            margin: 0;
+            background: #000;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+        }
+        canvas {
+            border: 2px solid #0aa;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="c" width="600" height="400"></canvas>
+    <script>
+        var c = document.getElementById('c');
+        var ctx = c.getContext('2d');
+        var W = 600, H = 400;
 
-// 2. Bullet Class/Object Definition
-class Bullet {
-    constructor(x, y) {
-        this.x = x;
-        this.y = y;
-        this.speed = 10;
-        this.size = 5;
-    }
-    draw() {
-        ctx.beginPath();
-        ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
-        ctx.fillStyle = 'red';
-        ctx.fill();
-    }
-    update() {
-        this.y -= this.speed; // Move up
-    }
-}
+        // Game variables
+        var hero = {x: 50, y: 180, w: 35, h: 25};
+        var bullets = [];
+        var sharks = [];
+        var score = 0;
+        var gameOver = false;
+        var started = false;
+        var keys = {};
+        var bgX = 0;
+        var sharkTimer = 0;
 
-// 3. Fire Function
-function fireBullet(sourceX, sourceY) {
-    bullets.push(new Bullet(sourceX, sourceY));
-}
+        // Input
+        document.onkeydown = function(e) {
+            keys[e.keyCode] = true;
+            if(e.keyCode == 32) e.preventDefault();
+            if(!started && e.keyCode == 13) {
+                started = true;
+                gameOver = false;
+                score = 0;
+                hero.y = 180;
+                bullets = [];
+                sharks = [];
+                sharkTimer = 0;
+            }
+        };
+        document.onkeyup = function(e) { keys[e.keyCode] = false; };
 
-// 4. Game Loop - Update and Draw
-function gameLoop() {
-    ctx.clearRect(0, 0, canvas.width, canvas.height); // Clear screen
+        function loop() {
+            ctx.clearRect(0, 0, W, H);
 
-    // Update & Draw Bullets
-    bullets.forEach((bullet, index) => {
-        bullet.update();
-        bullet.draw();
+            // Draw scrolling background
+            drawBG();
+
+            if(!started) {
+                ctx.fillStyle = '#0ff';
+                ctx.font = 'bold 28px Arial';
+                ctx.fillText('WAR BENEATH THE SEA', 120, 120);
+                ctx.font = '16px Arial';
+                ctx.fillStyle = '#8cf';
+                ctx.fillText('Arrow Up/Down = Move', 200, 180);
+                ctx.fillText('Space = Shoot', 230, 210);
+                ctx.fillText('Press ENTER to Start', 205, 260);
+                requestAnimationFrame(loop);
+                return;
+            }
+
+            if(gameOver) {
+                drawGame();
+                ctx.fillStyle = 'rgba(0,0,0,0.6)';
+                ctx.fillRect(0, 0, W, H);
+                ctx.fillStyle = '#f44';
+                ctx.font = 'bold 36px Arial';
+                ctx.fillText('GAME OVER', 190, 170);
+                ctx.fillStyle = '#fff';
+                ctx.font = '20px Arial';
+                ctx.fillText('Score: ' + score, 250, 220);
+                ctx.fillStyle = '#0ff';
+                ctx.font = '16px Arial';
+                ctx.fillText('Press ENTER to Restart', 195, 270);
+                started = false;
+                requestAnimationFrame(loop);
+                return;
+            }
+
+            update();
+            drawGame();
+            requestAnimationFrame(loop);
+        }
+
+        function drawBG() {
+            // Water
+            var g = ctx.createLinearGradient(0, 0, 0, H);
+            g.addColorStop(0, '#001833');
+            g.addColorStop(1, '#003050');
+            ctx.fillStyle = g;
+            ctx.fillRect(0, 0, W, H);
+
+            bgX -= 1;
+            if(bgX < -W) bgX = 0;
+
+            // Seabed
+            ctx.fillStyle = '#1a3325';
+            ctx.fillRect(0, H - 30, W, 30);
+            ctx.fillStyle = '#254035';
+            ctx.fillRect(0, H - 30, W, 4);
+
+            // Scrolling seaweed
+            for(var i = 0; i < 8; i++) {
+                var sx = ((i * 90 + bgX) % W + W) % W;
+                ctx.fillStyle = '#0a5525';
+                ctx.fillRect(sx, H - 55, 6, 25);
+                ctx.fillRect(sx - 3, H - 65, 6, 15);
+            }
+
+            // Scrolling bubbles decoration
+            for(var i = 0; i < 6; i++) {
+                var bx = ((i * 110 + 30 + bgX * 0.5) % W + W) % W;
+                var by = 50 + i * 55;
+                ctx.strokeStyle = 'rgba(100,200,255,0.2)';
+                ctx.beginPath();
+                ctx.arc(bx, by, 4 + i % 3, 0, Math.PI * 2);
+                ctx.stroke();
+            }
+        }
+
+        function update() {
+            // Hero movement
+            if(keys[38] && hero.y > 5) hero.y -= 4;
+            if(keys[40] && hero.y < H - hero.h - 35) hero.y += 4;
+
+            // Shoot
+            if(keys[32]) {
+                var canShoot = true;
+                for(var i = 0; i < bullets.length; i++) {
+                    if(bullets[i].x < hero.x + 60) {
+                        canShoot = false;
+                        break;
+                    }
+                }
+                if(canShoot) {
+                    bullets.push({x: hero.x + hero.w + 8, y: hero.y + hero.h/2 - 2, w: 8, h: 4});
+                }
+            }
+
+            // Update bullets
+            for(var i = bullets.length - 1; i >= 0; i--) {
+                bullets[i].x += 6;
+                if(bullets[i].x > W) bullets.splice(i, 1);
+            }
+
+            // Spawn sharks
+            sharkTimer++;
+            var spawnRate = Math.max(40, 80 - score);
+            if(sharkTimer >= spawnRate) {
+                sharkTimer = 0;
+                var sy = 20 + Math.random() * (H - 80);
+                var sp = 1.5 + Math.random() * 2 + score * 0.03;
+                if(sp > 5) sp = 5;
+                sharks.push({x: W + 10, y: sy, w: 45, h: 20, speed: sp});
+            }
+
+            // Update sharks
+            for(var i = sharks.length - 1; i >= 0; i--) {
+                var s = sharks[i];
+                s.x -= s.speed;
+
+                // Hit hero?
+                if(boxHit(hero, s)) {
+                    gameOver = true;
+                    return;
+                }
+
+                // Off screen
+                if(s.x + s.w < 0) {
+                    sharks.splice(i, 1);
+                    continue;
+                }
+
+                // Bullet hit?
+                for(var j = bullets.length - 1; j >= 0; j--) {
+                    if(boxHit(bullets[j], s)) {
+                        sharks.splice(i, 1);
+                        bullets.splice(j, 1);
+                        score += 10;
+                        break;
+                    }
+                }
+            }
+        }
+
+        function drawGame() {
+            // Draw hero (green square sub)
+            ctx.fillStyle = '#00e070';
+            ctx.fillRect(hero.x, hero.y, hero.w, hero.h);
+            ctx.fillStyle = '#009948';
+            ctx.fillRect(hero.x, hero.y, hero.w, 3);
+            // Window
+            ctx.fillStyle = '#aff';
+            ctx.fillRect(hero.x + 22, hero.y + 8, 8, 8);
+            ctx.fillStyle = '#0cc';
+            ctx.fillRect(hero.x + 24, hero.y + 10, 4, 4);
+            // Gun
+            ctx.fillStyle = '#888';
+            ctx.fillRect(hero.x + hero.w, hero.y + hero.h/2 - 2, 8, 4);
+
+            // Draw bullets
+            ctx.fillStyle = '#ff0';
+            for(var i = 0; i < bullets.length; i++) {
+                var b = bullets[i];
+                ctx.fillRect(b.x, b.y, b.w, b.h);
+            }
+
+            // Draw sharks
+            for(var i = 0; i < sharks.length; i++) {
+                var s = sharks[i];
+                // Body
+                ctx.fillStyle = '#557';
+                ctx.beginPath();
+                ctx.moveTo(s.x, s.y + s.h/2);
+                ctx.lineTo(s.x + s.w * 0.7, s.y);
+                ctx.lineTo(s.x + s.w, s.y + s.h/2 - 7);
+                ctx.lineTo(s.x + s.w * 0.85, s.y + s.h/2);
+                ctx.lineTo(s.x + s.w, s.y + s.h/2 + 7);
+                ctx.lineTo(s.x + s.w * 0.7, s.y + s.h);
+                ctx.closePath();
+                ctx.fill();
+                // Fin
+                ctx.fillStyle = '#446';
+                ctx.beginPath();
+                ctx.moveTo(s.x + s.w * 0.4, s.y);
+                ctx.lineTo(s.x + s.w * 0.5, s.y - 10);
+                ctx.lineTo(s.x + s.w * 0.65, s.y + 2);
+                ctx.closePath();
+                ctx.fill();
+                // Eye
+                ctx.fillStyle = '#f00';
+                ctx.fillRect(s.x + 5, s.y + s.h/2 - 3, 4, 4);
+                // Teeth
+                ctx.fillStyle = '#fff';
+                ctx.fillRect(s.x + 1, s.y + s.h/2 - 1, 2, 3);
+                ctx.fillRect(s.x + 4, s.y + s.h/2 + 1, 2, 2);
+            }
+
+            // Score
+            ctx.fillStyle = '#0ff';
+            ctx.font = 'bold 18px Arial';
+            ctx.fillText('Score: ' + score, 10, 25);
+        }
+
+        function boxHit(a, b) {
+            return a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
+        }
+
+        loop();
+    </script>
+</body>
+</html>        bullet.draw();
 
         // Remove bullet if off-screen
         if (bullet.y < 0) {
