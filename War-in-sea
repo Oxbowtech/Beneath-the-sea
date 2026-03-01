@@ -1,7 +1,8 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <title>War Beneath the Sea</title>
+    <meta charset="UTF-8">
+    <title>Iron Man Game</title>
     <style>
         body {
             margin: 0;
@@ -10,31 +11,137 @@
             justify-content: center;
             align-items: center;
             height: 100vh;
-            flex-direction: column;
         }
         canvas {
-            border: 2px solid #066;
-        }
-        #info {
-            color: #0ff;
-            font-family: Arial;
-            margin-top: 10px;
-            font-size: 14px;
+            border: 2px solid #ff0000;
         }
     </style>
 </head>
 <body>
-    <canvas id="game" width="600" height="400"></canvas>
-    <div id="info">Arrow Up/Down to Move | Space to Shoot | Enter to Start/Restart</div>
+    <canvas id="game" width="800" height="400"></canvas>
     <script>
-        var canvas = document.getElementById("game");
-        var ctx = canvas.getContext("2d");
+        const canvas = document.getElementById('game');
+        const ctx = canvas.getContext('2d');
 
-        var heroX = 50;
-        var heroY = 180;
-        var heroW = 40;
-        var heroH = 30;
+        let player = { x: 50, y: 180, w: 40, h: 40, speed: 5 };
+        let lasers = [];
+        let enemies = [];
+        let gameOver = false;
+        let bgX = 0;
+        let keys = {};
+        let spawnTimer = 0;
 
+        document.addEventListener('keydown', e => {
+            keys[e.key] = true;
+            if (e.key === 'Enter' && !gameOver) {
+                lasers.push({ x: player.x + player.w, y: player.y + player.h / 2 - 2, w: 20, h: 4 });
+            }
+            if (e.key === 'Enter' && gameOver) {
+                enemies = [];
+                lasers = [];
+                player.y = 180;
+                gameOver = false;
+            }
+        });
+        document.addEventListener('keyup', e => keys[e.key] = false);
+
+        function update() {
+            if (gameOver) return;
+
+            if (keys['ArrowUp'] && player.y > 0) player.y -= player.speed;
+            if (keys['ArrowDown'] && player.y + player.h < canvas.height) player.y += player.speed;
+
+            bgX -= 2;
+            if (bgX <= -800) bgX = 0;
+
+            for (let i = lasers.length - 1; i >= 0; i--) {
+                lasers[i].x += 8;
+                if (lasers[i].x > 820) lasers.splice(i, 1);
+            }
+
+            spawnTimer++;
+            if (spawnTimer > 60) {
+                let size = 30 + Math.random() * 20;
+                enemies.push({ x: 810, y: Math.random() * (canvas.height - size), w: size, h: size, speed: 2 + Math.random() * 3 });
+                spawnTimer = 0;
+            }
+
+            for (let i = enemies.length - 1; i >= 0; i--) {
+                enemies[i].x -= enemies[i].speed;
+
+                if (enemies[i].x + enemies[i].w < 0 || collides(player, enemies[i])) {
+                    gameOver = true;
+                    return;
+                }
+
+                for (let j = lasers.length - 1; j >= 0; j--) {
+                    if (collides(lasers[j], enemies[i])) {
+                        enemies.splice(i, 1);
+                        lasers.splice(j, 1);
+                        break;
+                    }
+                }
+            }
+        }
+
+        function collides(a, b) {
+            return a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
+        }
+
+        function draw() {
+            ctx.fillStyle = '#1a1a2e';
+            ctx.fillRect(0, 0, 800, 400);
+
+            for (let i = 0; i < 20; i++) {
+                let sx = ((i * 47 + bgX * 1.5) % 800 + 800) % 800;
+                let sy = (i * 73) % 400;
+                ctx.fillStyle = '#444';
+                ctx.fillRect(sx, sy, 2, 2);
+            }
+
+            ctx.fillStyle = '#cc0000';
+            ctx.fillRect(player.x, player.y, player.w, player.h);
+            ctx.fillStyle = '#ffd700';
+            ctx.fillRect(player.x + 5, player.y + 5, 10, 10);
+            ctx.fillRect(player.x + 5, player.y + 25, 30, 10);
+            ctx.fillStyle = '#00d4ff';
+            ctx.beginPath();
+            ctx.arc(player.x + 25, player.y + 18, 5, 0, Math.PI * 2);
+            ctx.fill();
+
+            ctx.fillStyle = '#00d4ff';
+            lasers.forEach(l => ctx.fillRect(l.x, l.y, l.w, l.h));
+
+            enemies.forEach(e => {
+                ctx.fillStyle = '#00cc00';
+                ctx.fillRect(e.x, e.y, e.w, e.h);
+                ctx.strokeStyle = '#00ff00';
+                ctx.lineWidth = 2;
+                ctx.strokeRect(e.x, e.y, e.w, e.h);
+            });
+
+            if (gameOver) {
+                ctx.fillStyle = 'rgba(0,0,0,0.7)';
+                ctx.fillRect(0, 0, 800, 400);
+                ctx.fillStyle = '#ff0000';
+                ctx.font = '48px Arial';
+                ctx.fillText('GAME OVER', 250, 190);
+                ctx.fillStyle = '#fff';
+                ctx.font = '24px Arial';
+                ctx.fillText('Press ENTER to restart', 260, 240);
+            }
+        }
+
+        function loop() {
+            update();
+            draw();
+            requestAnimationFrame(loop);
+        }
+
+        loop();
+    </script>
+</body>
+</html>
         var bullets = [];
         var sharks = [];
         var score = 0;
