@@ -1,0 +1,53 @@
+// 1. Setup - Canvas and Bullet Array
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+let bullets = [];
+
+// 2. Bullet Class/Object Definition
+class Bullet {
+    constructor(x, y) {
+        this.x = x;
+        this.y = y;
+        this.speed = 10;
+        this.size = 5;
+    }
+    draw() {
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+        ctx.fillStyle = 'red';
+        ctx.fill();
+    }
+    update() {
+        this.y -= this.speed; // Move up
+    }
+}
+
+// 3. Fire Function
+function fireBullet(sourceX, sourceY) {
+    bullets.push(new Bullet(sourceX, sourceY));
+}
+
+// 4. Game Loop - Update and Draw
+function gameLoop() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height); // Clear screen
+
+    // Update & Draw Bullets
+    bullets.forEach((bullet, index) => {
+        bullet.update();
+        bullet.draw();
+
+        // Remove bullet if off-screen
+        if (bullet.y < 0) {
+            bullets.splice(index, 1);
+        }
+    });
+
+    requestAnimationFrame(gameLoop);
+}
+
+// Example: Fire on mouse click
+canvas.addEventListener('click'() => {
+    fireBullet(canvas.width / 2, canvas.height - 30);
+});
+
+gameLoop();
