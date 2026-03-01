@@ -249,6 +249,24 @@
                 requestAnimationFrame(gameLoop);
             }
         }
+// Background Image Setup
+const bgImage = new Image();
+// Replace this URL with any underwater background image you like
+bgImage.src = 'https://images.unsplash.com/photo-1682687982501-1e5898cb4701?q=80&w=800&auto=format&fit=crop'; 
+let bgX = 0;           // Tracks the background's X position
+const bgSpeed = 1;     // How fast the background scrolls
+// Draw Looping Background Image
+if (bgImage.complete) {
+    // Draw the first image
+    ctx.drawImage(bgImage, bgX, 0, canvas.width, canvas.height);
+    // Draw the second image right behind it to fill the gap
+    ctx.drawImage(bgImage, bgX + canvas.width, 0, canvas.width, canvas.height);
+} else {
+    // Fallback color just in case the image takes a second to load
+    ctx.fillStyle = "#004466";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+}
+
 
         // Start the game
         gameLoop();
